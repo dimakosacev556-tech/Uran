@@ -1,0 +1,2 @@
+ПК : loadstring(game:HttpGet("https://raw.githubusercontent.com/dimakosacev556-tech/Uran/refs/heads/main/Uran%20v7.lua"))()
+Телефон : loadstring(game:HttpGet("https://raw.githubusercontent.com/dimakosacev556-tech/Uran/refs/heads/main/UranMobile.lua"))()
