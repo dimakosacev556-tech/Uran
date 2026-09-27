@@ -611,96 +611,6 @@ TabPool[DefaultTab].Visible = true
 ActiveCont = TabPool[DefaultTab]
 
 -- =========================================================================
--- ADVANCED AIMBOT MODULE WITH FIXED CENTER FOV & SMOOTHING MODES
--- =========================================================================
--- 1. НАСТРОЙКИ АИМБОТА
-local AimConfig = {
-    Enabled = false,       -- Включен ли Аимбот
-    Instant = false,       -- false = плавно, true = за 1 кадр
-    Radius = 120,          -- Радиус круга FOV в центре экрана
-    Smoothness = 0.15,     -- Скорость плавной наводки
-    AimKey = Enum.UserInputType.MouseButton2 -- Зажатая ПКМ
-}
-
--- 2. СОЗДАНИЕ СТАТИЧНОГО КРУГА FOV В ЦЕНТРЕ ЭКРАНА
-local FOVCircle = Drawing.new("Circle")
-FOVCircle.Thickness = 1.5
-FOVCircle.Color = Color3.fromRGB(0, 255, 163) -- Наш неоновый зеленый
-FOVCircle.Filled = false
-FOVCircle.Transparency = 0.8
-FOVCircle.Visible = false
-
--- 3. ПОИСК БЛИЖАЙШЕЙ ГОЛОВЫ ВНУТРИ КРУГА В ЦЕНТРЕ ЭКРАНА
-local function GetClosestHeadInCenterFOV()
-    local closestTarget = nil
-    local shortestDistance = AimConfig.Radius
-    -- Получаем точные координаты центра экрана
-    local screenSize = Camera.ViewportSize
-    local centerScreen = Vector2.new(screenSize.X / 2, screenSize.Y / 2)
-
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
-            local character = player.Character
-            local head = character:FindFirstChild("Head")
-            local humanoid = character:FindFirstChildOfClass("Humanoid")
-            if head and humanoid and humanoid.Health > 0 then
-                -- Переводим 3D позицию головы на 2D экран
-                local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
-                if onScreen then
-                    -- Считаем расстояние от головы строго до ЦЕНТРА ЭКРАНА
-                    local distance = (Vector2.new(screenPos.X, screenPos.Y) - centerScreen).Magnitude
-                    -- Проверяем, находится ли цель внутри круга и ближе ли она остальных к центру
-                    if distance < shortestDistance then
-                        shortestDistance = distance
-                        closestTarget = head
-                    end
-                end
-            end
-        end
-    end
-    return closestTarget
-end
-
--- 4. ОСНОВНОЙ СИСТЕМНЫЙ ЦИКЛ ОБРАБОТКИ НАВОДКИ
-RunService.RenderStepped:Connect(function()
-    -- Фиксируем круг ровно по центру экрана каждый кадр
-    local screenSize = Camera.ViewportSize
-    local centerScreen = Vector2.new(screenSize.X / 2, screenSize.Y / 2)
-    
-    FOVCircle.Position = centerScreen
-    FOVCircle.Radius = AimConfig.Radius
-    FOVCircle.Visible = AimConfig.Enabled
-
-    -- Если аимбот включен и зажата ПКМ
-    if AimConfig.Enabled and UserInputService:IsMouseButtonPressed(AimConfig.AimKey) then
-        local targetHead = GetClosestHeadInCenterFOV()
-        if targetHead then
-            if AimConfig.Instant then
-                -- РЕЖИМ ЗА 1 КАДР: Моментальное жесткое наведение
-                Camera.CFrame = CFrame.new(Camera.CFrame.Position, targetHead.Position)
-            else
-                -- ЛЕГИТНЫЙ РЕЖИМ: Плавный перенос камеры к цели
-                local targetCFrame = CFrame.new(Camera.CFrame.Position, targetHead.Position)
-                Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, AimConfig.Smoothness)
-            end
-        end
-    end
-end)
-
--- =========================================================================
--- ПРИВЯЗКА К ТУМБЛЕРАМ В ВАШЕМ МЕНЮ
--- =========================================================================
--- Главный тумблер включения Аимбота
-AddToggle("Главное", "AimBot", function(state)
-    AimConfig.Enabled = state
-end)
-
--- Под-тумблер настройки скорости (выключен = плавно, включен = за 1 кадр)
-AddToggle("Главное", "Rage Aim (for AimBot)", function(state)
-    AimConfig.Instant = state
-end)
-
--- =========================================================================
 -- PREMIUM MODULES SYSTEM (CLEAN CODE // INJECT ONLY VERSION)
 -- =========================================================================
 -- ГЛОБАЛЬНЫЕ НАСТРОЙКИ МОДУЛЕЙ
@@ -914,71 +824,37 @@ AddToggle("Главное", "Noclip (Сквозь стены)", function(state)
 end)
 
 -- =========================================================================
--- PREMIUM FLY MODULE (УПРАВЛЕНИЕ КАМЕРОЙ)
+-- MOBILE FLY MODULE (УПРАВЛЕНИЕ ЧЕРЕЗ КАМЕРУ И МОБИЛЬНЫЙ ДЖОЙСТИК)
 -- =========================================================================
 local FlyEnabled = false
-local FlySpeed = 50 -- Скорость полета по умолчанию
-local ControlAxes = {W = 0, S = 0, A = 0, D = 0, Space = 0, Shift = 0}
+local FlySpeed = 50 
 
--- Отслеживание нажатий клавиш для направления полета
-UserInputService.InputBegan:Connect(function(input, processed)
-    if processed then return end
-    local key = input.KeyCode
-    if key == Enum.KeyCode.W then ControlAxes.W = 1
-    elseif key == Enum.KeyCode.S then ControlAxes.S = -1
-    elseif key == Enum.KeyCode.A then ControlAxes.A = -1
-    elseif key == Enum.KeyCode.D then ControlAxes.D = 1
-    elseif key == Enum.KeyCode.Space then ControlAxes.Space = 1
-    elseif key == Enum.KeyCode.LeftShift then ControlAxes.Shift = -1
-    end
-end)
-
-UserInputService.InputEnded:Connect(function(input)
-    local key = input.KeyCode
-    if key == Enum.KeyCode.W then ControlAxes.W = 0
-    elseif key == Enum.KeyCode.S then ControlAxes.S = 0
-    elseif key == Enum.KeyCode.A then ControlAxes.A = 0
-    elseif key == Enum.KeyCode.D then ControlAxes.D = 0
-    elseif key == Enum.KeyCode.Space then ControlAxes.Space = 0
-    elseif key == Enum.KeyCode.LeftShift then ControlAxes.Shift = 0
-    end
-end)
-
--- Основной цикл обработки полета
-RunService.RenderStepped:Connect(function(deltaTime)
+RunService.RenderStepped:Connect(function()
     if not FlyEnabled then return end
     local character = LocalPlayer.Character
     local root = character and character:FindFirstChild("HumanoidRootPart")
     local humanoid = character and character:FindFirstChildOfClass("Humanoid")
     
     if root and humanoid then
-        -- Отключаем стандартные падения и анимации ходьбы во время полета
+        -- Отключаем падение
         humanoid:ChangeState(Enum.HumanoidStateType.Flying)
         
-        -- Считаем вектор направления на основе взгляда камеры
-        local camCFrame = Camera.CFrame
-        local moveDirection = Vector3.new(0, 0, 0)
+        -- Считываем направление движения из мобильного джойстика Roblox
+        local moveDirection = humanoid.MoveDirection
         
-        -- Вперед / Назад
-        moveDirection = moveDirection + (camCFrame.LookVector * (ControlAxes.W + ControlAxes.S))
-        -- Влево / Вправо
-        moveDirection = moveDirection + (camCFrame.RightVector * (ControlAxes.A + ControlAxes.D))
-        -- Вверх / Вниз (Пробел и Shift)
-        moveDirection = moveDirection + (Vector3.new(0, 1, 0) * (ControlAxes.Space + ControlAxes.Shift))
-        
-        -- Если кнопки направления нажаты — двигаем, иначе — удерживаем персонажа на месте в воздухе
+        -- Если палец на джойстике, двигаем персонажа по вектору джойстика со скоростью FlySpeed
         if moveDirection.Magnitude > 0 then
-            root.Velocity = moveDirection.Unit * FlySpeed
+            root.Velocity = moveDirection * FlySpeed
         else
-            root.Velocity = Vector3.new(0, 0, 0)
+            -- Удержание в воздухе на смартфонах (чтобы персонаж плавно не падал)
+            root.Velocity = Vector3.new(0, 0.1, 0)
         end
     end
 end)
 
--- Создание тумблера во вкладке "Главное"
+-- Обновленный мобильный тумблер во вкладке "Главное"
 AddToggle("Главное", "Fly (Полет)", function(state)
     FlyEnabled = state
-    -- Возвращаем физику в дефолтное состояние при отключении
     if not state and LocalPlayer.Character then
         local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
         local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
@@ -1098,7 +974,6 @@ function AddSlider(tab, name, min, max, default, callback)
     ValueLabel.ZIndex = 4
     ValueLabel.Parent = Frame
 
-    -- Полоса слайдера (Бэкграунд)
     local SliderButton = Instance.new("TextButton")
     SliderButton.Size = UDim2.new(1, -28, 0, 6)
     SliderButton.Position = UDim2.new(0, 14, 0, 34)
@@ -1108,7 +983,6 @@ function AddSlider(tab, name, min, max, default, callback)
     SliderButton.Parent = Frame
     Instance.new("UICorner", SliderButton).CornerRadius = UDim.new(1, 0)
 
-    -- Активная закрашенная часть слайдера
     local SliderBar = Instance.new("Frame")
     SliderBar.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
     SliderBar.BackgroundColor3 = Color3.fromRGB(0, 255, 163)
@@ -1117,7 +991,6 @@ function AddSlider(tab, name, min, max, default, callback)
     SliderBar.Parent = SliderButton
     Instance.new("UICorner", SliderBar).CornerRadius = UDim.new(1, 0)
 
-    -- Ползунок (Кружок)
     local SliderDot = Instance.new("Frame")
     SliderDot.Size = UDim2.new(0, 12, 0, 12)
     SliderDot.Position = UDim2.new((default - min) / (max - min), -6, 0.5, -6)
@@ -1131,11 +1004,10 @@ function AddSlider(tab, name, min, max, default, callback)
     DotStroke.Thickness = 1.5
     DotStroke.Parent = SliderDot
 
-    -- Логика перетаскивания ползунка мышкой
+    -- ИСПРАВЛЕННАЯ ЛОГИКА ДЛЯ СЕНСОРНЫХ ЭКРАНОВ СМАРТФОНОВ
     local Dragging = false
-    local function UpdateSlider()
-        local MousePos = UserInputService:GetMouseLocation()
-        local RelativeX = MousePos.X - SliderButton.AbsolutePosition.X
+    local function UpdateSlider(input)
+        local RelativeX = input.Position.X - SliderButton.AbsolutePosition.X
         local Percentage = math.clamp(RelativeX / SliderButton.AbsoluteSize.X, 0, 1)
         local Value = math.floor(min + (max - min) * Percentage)
         
@@ -1145,28 +1017,31 @@ function AddSlider(tab, name, min, max, default, callback)
         pcall(callback, Value)
     end
 
+    -- Обработка начала касания пальцем или клика мыши
     SliderButton.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             Dragging = true
-            UpdateSlider()
+            UpdateSlider(input)
             TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundTransparency = 0}):Play()
             FStroke.Color = Color3.fromRGB(0, 255, 163)
             FStroke.Transparency = 0.8
         end
     end)
 
+    -- Обработка движения пальца по экрану (Touch)
+    UserInputService.InputChanged:Connect(function(input)
+        if Dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            UpdateSlider(input)
+        end
+    end)
+
+    -- Отпускание пальца
     UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 and Dragging then
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             Dragging = false
             TweenService:Create(Frame, TweenInfo.new(0.2), {BackgroundTransparency = 0.3}):Play()
             FStroke.Color = Color3.fromRGB(255, 255, 255)
             FStroke.Transparency = 0.96
-        end
-    end)
-
-    UserInputService.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement and Dragging then
-            UpdateSlider()
         end
     end)
 end
