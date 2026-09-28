@@ -1418,3 +1418,75 @@ AddToggle("MM 2", "Role Finder + ESP", function(state)
     end
 end)
 -- =========================================================================
+
+-- =========================================================================
+-- UNIVERSAL: CHARACTER GLITCH & BONE STRETCHER (ВИДНО ВСЕМ ИГРОКАМ)
+-- =========================================================================
+local GlitchCharacterEnabled = false
+local OriginalC0_Cache = {}
+
+-- Список основных суставов, которые мы будем деформировать и вытягивать
+local BoneJoints = {
+    "LeftShoulder", "RightShoulder", 
+    "LeftHip", "RightHip", 
+    "Neck", "Waist",
+    "Left Elbow", "Right Elbow",
+    "Left Knee", "Right Knee"
+}
+
+-- Функция для включения и выключения жуткой деформации
+local function ToggleGlitchGarry(state)
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    if state then
+        -- Включаем безумный покадровый сдвиг костей
+        task.spawn(function()
+            while GlitchCharacterEnabled and char and char.Parent do
+                RunService.RenderStepped:Wait() -- Максимальная скорость анимации хаоса
+                
+                for _, part in ipairs(char:GetDescendants()) do
+                    if part:IsA("Motor6D") and table.find(BoneJoints, part.Name) then
+                        -- Кэшируем оригинальную позицию сустава, чтобы вернуть всё в норму потом
+                        if not OriginalC0_Cache[part] then
+                            OriginalC0_Cache[part] = part.C0
+                        end
+                        
+                        -- ГЕНЕРАЦИЯ ХАОСА: Вытягиваем кости по случайным осям на огромные расстояния
+                        local randomX = math.random(-25, 25) -- Множитель растяжения по горизонтали
+                        local randomY = math.random(-40, 40) -- Множитель растяжения по вертикали
+                        local randomZ = math.random(-25, 25)
+                        
+                        -- Каждую миллисекунду суставы выворачиваются под неестественными углами
+                        part.C0 = OriginalC0_Cache[part] 
+                            * CFrame.new(randomX, randomY, randomZ) 
+                            * CFrame.Angles(math.rad(math.random(0, 360)), math.rad(math.random(0, 360)), math.rad(math.random(0, 360)))
+                    end
+                end
+            end
+        end)
+    else
+        -- ВОЗВРАЩАЕМ ПЕРСОНАЖА В НОРМАЛЬНЫЙ ВИД
+        for part, originalC0 in pairs(OriginalC0_Cache) do
+            if part and part.Parent then
+                part.C0 = originalC0
+            end
+        end
+        OriginalC0_Cache = {}
+    end
+end
+
+-- Мониторинг на случай, если персонаж возродился (Reset / Respawn)
+LocalPlayer.CharacterAdded:Connect(function(char)
+    if GlitchCharacterEnabled then
+        task.wait(1)
+        ToggleGlitchGarry(true)
+    end
+end)
+
+-- Интеграция тумблера во вкладку "Главное" вашего хаба
+AddToggle("Главное", "bone breaker", function(state)
+    GlitchCharacterEnabled = state
+    ToggleGlitchGarry(state)
+end)
+-- =========================================================================
