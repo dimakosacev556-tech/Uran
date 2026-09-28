@@ -611,196 +611,110 @@ TabPool[DefaultTab].Visible = true
 ActiveCont = TabPool[DefaultTab]
 
 -- =========================================================================
--- PREMIUM MODULES SYSTEM (CLEAN CODE // INJECT ONLY VERSION)
+-- MOBILE ESP SYSTEM (HIGHLIGHT CHAMS + BILLBOARD SYSTEM // 100% MOBILE FIX)
 -- =========================================================================
--- ГЛОБАЛЬНЫЕ НАСТРОЙКИ МОДУЛЕЙ
-local ESP_ENABLED = false
+local Mobile_ESP_Enabled = false
+local Mobile_Folder = Instance.new("Folder")
+Mobile_Folder.Name = "UranMobileESP"
+Mobile_Folder.Parent = game:GetService("CoreGui") or PlayerGui
 
--- КОНФИГУРАЦИЯ СУСТАВОВ ДЛЯ СКЕЛЕТА
-local SkeletonPairs = {
-    {"Head", "UpperTorso"}, {"UpperTorso", "LowerTorso"},
-    {"UpperTorso", "LeftUpperArm"}, {"LeftUpperArm", "LeftLowerArm"}, {"LeftLowerArm", "LeftHand"},
-    {"UpperTorso", "RightUpperArm"}, {"RightUpperArm", "RightLowerArm"}, {"RightLowerArm", "RightHand"},
-    {"LowerTorso", "LeftUpperLeg"}, {"LeftUpperLeg", "LeftLowerLeg"}, {"LeftLowerLeg", "LeftFoot"},
-    {"LowerTorso", "RightUpperLeg"}, {"RightUpperLeg", "RightLowerLeg"}, {"RightLowerLeg", "RightFoot"}
-}
-local Cache = {}
-
--- Создание графических элементов (Drawing)
-local function CreateESPObjects()
-    local objects = {
-        Box = Drawing.new("Square"),
-        HealthBar = Drawing.new("Line"),
-        Text = Drawing.new("Text"),
-        SnapLine = Drawing.new("Line"),
-        Bones = {}
-    }
-    -- Белые рамки вокруг игроков
-    objects.Box.Color = Color3.fromRGB(255, 255, 255)
-    objects.Box.Thickness = 1
-    objects.Box.Filled = false
-    -- Линия ХП справа
-    objects.HealthBar.Color = Color3.fromRGB(0, 255, 100)
-    objects.HealthBar.Thickness = 2
-    -- Текст никнейма и дистанции
-    objects.Text.Color = Color3.fromRGB(255, 255, 255)
-    objects.Text.Size = 13
-    objects.Text.Center = true
-    objects.Text.Outline = true
-    objects.Text.OutlineColor = Color3.fromRGB(0, 0, 0)
-    objects.SnapLine.Thickness = 1.5
-
-    for i = 1, #SkeletonPairs do
-        local boneLine = Drawing.new("Line")
-        boneLine.Color = Color3.fromRGB(230, 230, 230)
-        boneLine.Thickness = 1
-        table.insert(objects.Bones, boneLine)
-    end
-    return objects
-end
-
-local function SetESPVisibility(obs, state)
-    obs.Box.Visible = state
-    obs.HealthBar.Visible = state
-    obs.Text.Visible = state
-    obs.SnapLine.Visible = state
-    for _, bone in ipairs(obs.Bones) do
-        bone.Visible = state
-    end
-end
-
-local function RemoveESP(player)
-    if Cache[player] then
-        local obs = Cache[player]
-        obs.Box:Remove()
-        obs.HealthBar:Remove()
-        obs.Text:Remove()
-        obs.SnapLine:Remove()
-        for _, bone in ipairs(obs.Bones) do
-            bone:Remove()
-        end
-        Cache[player] = nil
-    end
-end
-
--- ГЛАВНЫЙ ПОТОК ОБНОВЛЕНИЯ КАДРОВ (ESP + AIMBOT UPDATE)
-RunService.RenderStepped:Connect(function()
-    local screenSize = Camera.ViewportSize
-    local centerScreen = Vector2.new(screenSize.X / 2, screenSize.Y / 2)
+-- Функция создания подсветки для конкретного игрока
+local function ApplyMobileESP(player)
+    if player == LocalPlayer then return end
     
-    -- Фиксация круга Аима в центре (обновление позиции при ресайзе окна)
-    FOVCircle.Position = centerScreen
-    FOVCircle.Radius = AimConfig.Radius
-    FOVCircle.Visible = AimConfig.Enabled
-
-    -- Логика работы Аимбота при зажатом ПКМ (дублируется здесь для надежности цикла)
-    if AimConfig.Enabled and UserInputService:IsMouseButtonPressed(AimConfig.AimKey) then
-        local targetHead = GetClosestHeadInCenterFOV()
-        if targetHead then
-            if AimConfig.Instant then
-                Camera.CFrame = CFrame.new(Camera.CFrame.Position, targetHead.Position)
-            else
-                local targetCFrame = CFrame.new(Camera.CFrame.Position, targetHead.Position)
-                Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, AimConfig.Smoothness)
-            end
-        end
-    end
-
-    -- Радужный цвет для SnapLines
-    local hue = (tick() % 4) / 4
-    local RainbowColor = Color3.fromHSV(hue, 1, 1)
-
-    -- Цикл рендеринга ESP
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            if not Cache[player] then
-                Cache[player] = CreateESPObjects()
-            end
-            local obs = Cache[player]
-            local char = player.Character
-            local hum = char and char:FindFirstChildOfClass("Humanoid")
-            local root = char and char:FindFirstChild("HumanoidRootPart")
-
-            if ESP_ENABLED and char and hum and root and hum.Health > 0 then
-                local rootPos, onScreen = Camera:WorldToViewportPoint(root.Position)
-                if onScreen then
-                    local scale = 1 / (rootPos.Z * math.tan(math.rad(Camera.FieldOfView / 2))) * 1000
-                    local width, height = scale * 0.50, scale * 0.68
-                    local boxX = rootPos.X - (width / 2)
-                    local boxY = rootPos.Y - (height / 2) + (scale * 0.05)
-
-                    -- Отображение белой рамки вокруг игрока
-                    obs.Box.Size = Vector2.new(width, height)
-                    obs.Box.Position = Vector2.new(boxX, boxY)
-
-                    -- Зеленая полоска здоровья справа
-                    local healthPercent = hum.Health / hum.MaxHealth
-                    local barHeight = height * healthPercent
-                    obs.HealthBar.From = Vector2.new(boxX + width + 4, boxY + height)
-                    obs.HealthBar.To = Vector2.new(boxX + width + 4, boxY + height - barHeight)
-
-                    -- Текст сверху (Ник + Дистанция)
-                    local distance = math.floor(rootPos.Z)
-                    obs.Text.Text = string.format("%s [%d m]", player.Name, distance)
-                    obs.Text.Position = Vector2.new(rootPos.X, boxY - 16)
-
-                    -- Разноцветные линии от низа экрана
-                    obs.SnapLine.From = Vector2.new(screenSize.X / 2, screenSize.Y)
-                    obs.SnapLine.To = Vector2.new(rootPos.X, boxY + height)
-                    obs.SnapLine.Color = RainbowColor
-
-                    -- Отрисовка скелета
-                    for i, pair in ipairs(SkeletonPairs) do
-                        local partA = char:FindFirstChild(pair[1])
-                        local partB = char:FindFirstChild(pair[2])
-                        local line = obs.Bones[i]
-                        if partA and partB and line then
-                            local posA, onScreenA = Camera:WorldToViewportPoint(partA.Position)
-                            local posB, onScreenB = Camera:WorldToViewportPoint(partB.Position)
-                            if onScreenA and onScreenB then
-                                line.From = Vector2.new(posA.X, posA.Y)
-                                line.To = Vector2.new(posB.X, posB.Y)
-                                line.Visible = true
-                            else
-                                line.Visible = false
-                            end
-                        elseif line then
-                            line.Visible = false
-                        end
+    local function CharacterAdded(char)
+        task.wait(0.5) -- Ждем полной прогрузки персонажа
+        if not Mobile_ESP_Enabled then return end
+        
+        local root = char:WaitForChild("HumanoidRootPart", 10)
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        
+        if root and humanoid and not Mobile_Folder:FindFirstChild(player.Name) then
+            -- Создаем контейнер для эффектов игрока
+            local pContainer = Instance.new("Configuration")
+            pContainer.Name = player.Name
+            pContainer.Parent = Mobile_Folder
+            
+            -- 1. СИЛУЭТ (CHAMS) - Просвечивает неоном сквозь стены
+            local highlight = Instance.new("Highlight")
+            highlight.Name = "Chams"
+            highlight.Adornee = char
+            highlight.FillColor = Color3.fromRGB(0, 255, 163) -- Наш неоновый зеленый
+            highlight.FillTransparency = 0.5
+            highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+            highlight.OutlineTransparency = 0.2
+            highlight.Parent = pContainer
+            
+            -- 2. ТЕКСТ НАД ГОЛОВОЙ (Никнейм + Дистанция + ХП)
+            local bGui = Instance.new("BillboardGui")
+            bGui.Name = "Tag"
+            bGui.Adornee = root
+            bGui.Size = UDim2.new(0, 200, 0, 50)
+            bGui.StudsOffset = Vector3.new(0, 3.5, 0) -- Высота текста над головой
+            bGui.AlwaysOnTop = true -- Чтобы текст кочевал сквозь стены
+            bGui.Parent = pContainer
+            
+            local txt = Instance.new("TextLabel")
+            txt.Size = UDim2.new(1, 0, 1, 0)
+            txt.BackgroundTransparency = 1
+            txt.TextColor3 = Color3.fromRGB(255, 255, 255)
+            txt.TextSize = 12
+            txt.Font = Enum.Font.GothamBold
+            txt.TextStrokeTransparency = 0 -- Черная обводка букв
+            txt.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+            txt.Parent = bGui
+            
+            -- Цикл постоянного обновления текста дистанции и ХП
+            task.spawn(function()
+                while char and char.Parent and pContainer and pContainer.Parent and Mobile_ESP_Enabled do
+                    if root and humanoid and humanoid.Health > 0 then
+                        local distance = math.floor((LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and (LocalPlayer.Character.HumanoidRootPart.Position - root.Position).Magnitude) or 0)
+                        txt.Text = string.format("%s\n[%d m] • [HP: %d]", player.Name, distance, math.floor(humanoid.Health))
+                    else
+                        break
                     end
-                    SetESPVisibility(obs, true)
-                else
-                    SetESPVisibility(obs, false)
+                    task.wait(0.2) -- Обновляем дистанцию 5 раз в секунду (не лагает)
                 end
-            else
-                SetESPVisibility(obs, false)
-            end
+            end)
         end
     end
-end)
+    
+    if player.Character then task.spawn(CharacterAdded, player.Character) end
+    player.CharacterAdded:Connect(CharacterAdded)
+end
 
-Players.PlayerRemoving:Connect(RemoveESP)
+-- Функция удаления подсветки
+local function RemoveMobileESP(player)
+    local found = Mobile_Folder:FindFirstChild(player.Name)
+    if found then found:Destroy() end
+end
 
--- =========================================================================
--- АКТИВАЦИЯ ТУМБЛЕРА ESP ДЛЯ В КЛАДКИ ГЛАВНОЕ
--- =========================================================================
-AddToggle("Главное", "ESP", function(state)
-    ESP_ENABLED = state
-    -- Если тумблер выключают, принудительно убираем все элементы с экрана сразу
-    if not state then
-        for _, obs in pairs(Cache) do
-            if obs.Box then obs.Box.Visible = false end
-            if obs.HealthBar then obs.HealthBar.Visible = false end
-            if obs.Text then obs.Text.Visible = false end
-            if obs.SnapLine then obs.SnapLine.Visible = false end
-            if obs.Bones then
-                for _, bone in ipairs(obs.Bones) do
-                    bone.Visible = false
+-- Постоянный мониторинг игроков
+task.spawn(function()
+    while true do
+        task.wait(1)
+        if Mobile_ESP_Enabled then
+            for _, p in ipairs(Players:GetPlayers()) do
+                if p ~= LocalPlayer and not Mobile_Folder:FindFirstChild(p.Name) then
+                    ApplyMobileESP(p)
                 end
             end
         end
     end
 end)
+
+Players.PlayerRemoving:Connect(RemoveMobileESP)
+
+-- Привязка к мобильному тумблеру вашего меню Uran Hub
+AddToggle("Главное", "Mobile ESP (Chams)", function(state)
+    Mobile_ESP_Enabled = state
+    if state then
+        for _, p in ipairs(Players:GetPlayers()) do ApplyMobileESP(p) end
+    else
+        Mobile_Folder:ClearAllChildren()
+    end
+end)
+-- =========================================================================
 
 -- =========================================================================
 -- NOCLIP MODULE (ПРОХОД СКВОЗЬ СТЕНЫ)
@@ -824,35 +738,59 @@ AddToggle("Главное", "Noclip (Сквозь стены)", function(state)
 end)
 
 -- =========================================================================
--- MOBILE FLY MODULE (УПРАВЛЕНИЕ ЧЕРЕЗ КАМЕРУ И МОБИЛЬНЫЙ ДЖОЙСТИК)
+-- PREMIUM MOBILE FLY MODULE (C FRAME MATRIX // 100% FIXED FOR PHONES)
 -- =========================================================================
 local FlyEnabled = false
-local FlySpeed = 50 
+local FlySpeed = 50 -- Скорость полета
+local UpAxes = 0 -- Направление вверх/вниз
 
-RunService.RenderStepped:Connect(function()
+-- Отслеживаем экранные кнопки прыжка телефона для подъема и спуска
+local FlyInputBegan; FlyInputBegan = UserInputService.InputBegan:Connect(function(input, processed)
     if not FlyEnabled then return end
-    local character = LocalPlayer.Character
-    local root = character and character:FindFirstChild("HumanoidRootPart")
-    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-    
-    if root and humanoid then
-        -- Отключаем падение
-        humanoid:ChangeState(Enum.HumanoidStateType.Flying)
-        
-        -- Считываем направление движения из мобильного джойстика Roblox
-        local moveDirection = humanoid.MoveDirection
-        
-        -- Если палец на джойстике, двигаем персонажа по вектору джойстика со скоростью FlySpeed
-        if moveDirection.Magnitude > 0 then
-            root.Velocity = moveDirection * FlySpeed
-        else
-            -- Удержание в воздухе на смартфонах (чтобы персонаж плавно не падал)
-            root.Velocity = Vector3.new(0, 0.1, 0)
+    if input.KeyCode == Enum.KeyCode.Space then
+        UpAxes = 1 -- Летим вверх при зажатии прыжка
+    end
+end)
+
+local FlyInputEnded; FlyInputEnded = UserInputService.InputEnded:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.Space then
+        UpAxes = 0 -- Стоим на месте, если отпустили
+    end
+end)
+
+-- Основной цикл полета на CFrame (работает на всех смартфонах)
+task.spawn(function()
+    while true do
+        RunService.RenderStepped:Wait() -- Максимальная частота кадров
+        if FlyEnabled and LocalPlayer.Character then
+            local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+            
+            if root and humanoid then
+                -- Удерживаем состояние полета, отключая стандартную гравитацию Roblox
+                humanoid:ChangeState(Enum.HumanoidStateType.Flying)
+                root.Velocity = Vector3.new(0, 0, 0) -- Обнуляем падение
+                
+                -- Рассчитываем движение на основе наклона камеры телефона
+                local camCFrame = Camera.CFrame
+                local moveDir = humanoid.MoveDirection -- Считываем экранный джойстик
+                
+                if moveDir.Magnitude > 0 then
+                    -- Если тянем джойстик, плавно двигаем CFrame персонажа по вектору камеры
+                    local flyVector = (camCFrame.LookVector * moveDir.Z) + (camCFrame.RightVector * moveDir.X)
+                    root.CFrame = root.CFrame + (flyVector.Unit * (FlySpeed / 60))
+                end
+                
+                -- Подъем вверх, если нажимаем на кнопку прыжка на экране
+                if UpAxes == 1 then
+                    root.CFrame = root.CFrame + Vector3.new(0, FlySpeed / 60, 0)
+                end
+            end
         end
     end
 end)
 
--- Обновленный мобильный тумблер во вкладке "Главное"
+-- Обновленный тумблер во вкладке "Главное" вашей панели
 AddToggle("Главное", "Fly (Полет)", function(state)
     FlyEnabled = state
     if not state and LocalPlayer.Character then
@@ -866,6 +804,7 @@ AddToggle("Главное", "Fly (Полет)", function(state)
         end
     end
 end)
+-- =========================================================================
 
 -- =========================================================================
 -- INFINITE JUMP MODULE (БЕСКОНЕЧНЫЙ ПРЫЖОК)
