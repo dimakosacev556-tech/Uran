@@ -1422,3 +1422,163 @@ AddToggle("Главное", "TP to Tornado Core", function(state)
         end
     end
 end)
+
+-- =========================================================================
+-- MURDER MYSTERY 2: PREMIUM ROLE FINDER & VISUAL CHAMS (PC VERSION)
+-- =========================================================================
+local MM2_Farm_Enabled = false
+local ActiveHighlights = {}
+
+-- 1. СОЗДАНИЕ ДИЗАЙНЕРСКОГО ИНДИКАТОРА РОЛЕЙ СЛЕВА СВЕРХУ ИНТЕРФЕЙСА
+local RoleHUD = Instance.new("Frame")
+RoleHUD.Name = "MM2RoleHUD"
+RoleHUD.Size = UDim2.new(0, 220, 0, 80)
+RoleHUD.Position = UDim2.new(0, 16, 0, 75) -- Позиционируется слева сверху, под вашей шапкой
+RoleHUD.BackgroundColor3 = Color3.fromRGB(11, 11, 14)
+RoleHUD.BackgroundTransparency = 0.2
+RoleHUD.BorderSizePixel = 0
+RoleHUD.Visible = false
+RoleHUD.ZIndex = 5
+RoleHUD.Parent = Main -- Привязываем к вашему главному фрейму Main, чтобы двигался вместе с ним
+
+local HUDCorner = Instance.new("UICorner")
+HUDCorner.CornerRadius = UDim.new(0, 10)
+HUDCorner.Parent = RoleHUD
+
+local HUDStroke = Instance.new("UIStroke")
+HUDStroke.Color = Color3.fromRGB(0, 255, 163)
+HUDStroke.Transparency = 0.7
+HUDStroke.Thickness = 1
+HUDStroke.Parent = RoleHUD
+
+-- Текст убийцы
+local MurdererLabel = Instance.new("TextLabel")
+MurdererLabel.Size = UDim2.new(1, -20, 0, 30)
+MurdererLabel.Position = UDim2.new(0, 14, 0, 10)
+MurdererLabel.BackgroundTransparency = 1
+MurdererLabel.Text = "Убийца: <font color='rgb(140,140,150)'>Поиск...</font>"
+MurdererLabel.RichText = true
+MurdererLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+MurdererLabel.TextSize = 12
+MurdererLabel.Font = Enum.Font.GothamSemibold
+MurdererLabel.TextXAlignment = Enum.TextXAlignment.Left
+MurdererLabel.Parent = RoleHUD
+
+-- Текст шерифа
+local SheriffLabel = Instance.new("TextLabel")
+SheriffLabel.Size = UDim2.new(1, -20, 0, 30)
+SheriffLabel.Position = UDim2.new(0, 14, 0, 40)
+SheriffLabel.BackgroundTransparency = 1
+SheriffLabel.Text = "Шериф: <font color='rgb(140,140,150)'>Поиск...</font>"
+SheriffLabel.RichText = true
+SheriffLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+SheriffLabel.TextSize = 12
+SheriffLabel.Font = Enum.Font.GothamSemibold
+SheriffLabel.TextXAlignment = Enum.TextXAlignment.Left
+SheriffLabel.Parent = RoleHUD
+
+-- 2. СИСТЕМНАЯ ФУНКЦИЯ ОЧИСТКИ ВСЕХ ЭФФЕКТОВ ПОДСВЕТКИ
+local function ClearMM2Visuals()
+    for char, hl in pairs(ActiveHighlights) do
+        if hl then hl:Destroy() end
+    end
+    ActiveHighlights = {}
+    MurdererLabel.Text = "Убийца: <font color='rgb(140,140,150)'>Поиск...</font>"
+    SheriffLabel.Text = "Шериф: <font color='rgb(140,140,150)'>Поиск...</font>"
+end
+
+-- 3. ЦИКЛ ПРОВЕРКИ ИНВЕНТАРЕЙ КАЖДУЮ СЕКУНДУ (SCANNER)
+task.spawn(function()
+    while true do
+        task.wait(1) -- Проверка строго раз в секунду, чтобы не вызывать лаги
+        if MM2_Farm_Enabled then
+            local mFound, sFound = false, false
+            
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer then
+                    local character = player.Character
+                    local backpack = player:FindFirstChild("Backpack")
+                    
+                    local hasKnife = false
+                    local hasGun = false
+                    
+                    -- Ищем нож или пистолет в рюкзаке (когда оружие убрано)
+                    if backpack then
+                        if backpack:FindFirstChild("Knife") then hasKnife = true end
+                        if backpack:FindFirstChild("Gun") then hasGun = true end
+                    end
+                    
+                    -- Ищем нож или пистолет прямо в руках персонажа (когда оружие экипировано)
+                    if character then
+                        if character:FindFirstChild("Knife") then hasKnife = true end
+                        if character:FindFirstChild("Gun") then hasGun = true end
+                    end
+                    
+                    -- ЕСЛИ ИГРОК ОКАЗАЛСЯ УБИЙЦЕЙ
+                    if hasKnife and character and character.Parent then
+                        mFound = true
+                        MurdererLabel.Text = string.format("Убийца: <font color='rgb(255, 50, 50)'>%s</font>", player.DisplayName)
+                        
+                        -- Накладываем красный Chams, если его еще нет
+                        if not ActiveHighlights[character] or ActiveHighlights[character].FillColor ~= Color3.fromRGB(255, 50, 50) then
+                            if ActiveHighlights[character] then ActiveHighlights[character]:Destroy() end
+                            
+                            local hl = Instance.new("Highlight")
+                            hl.Adornee = character
+                            hl.FillColor = Color3.fromRGB(255, 50, 50) -- Красный цвет
+                            hl.FillTransparency = 0.4
+                            hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                            hl.OutlineTransparency = 0.1
+                            hl.AlwaysOnTop = true
+                            hl.Parent = character
+                            ActiveHighlights[character] = hl
+                        end
+                    
+                    -- ЕСЛИ ИГРОК ОКАЗАЛСЯ ШЕРИФОМ
+                    elseif hasGun and character and character.Parent then
+                        sFound = true
+                        SheriffLabel.Text = string.format("Шериф: <font color='rgb(50, 150, 255)'>%s</font>", player.DisplayName)
+                        
+                        -- Накладываем синий Chams, если его еще нет
+                        if not ActiveHighlights[character] or ActiveHighlights[character].FillColor ~= Color3.fromRGB(50, 150, 255) then
+                            if ActiveHighlights[character] then ActiveHighlights[character]:Destroy() end
+                            
+                            local hl = Instance.new("Highlight")
+                            hl.Adornee = character
+                            hl.FillColor = Color3.fromRGB(50, 150, 255) -- Синий цвет
+                            hl.FillTransparency = 0.4
+                            hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                            hl.OutlineTransparency = 0.1
+                            hl.AlwaysOnTop = true
+                            hl.Parent = character
+                            ActiveHighlights[character] = hl
+                        end
+                    end
+                end
+            end
+            
+            -- Если роли не найдены (например, раунд еще не начался), сбрасываем текст
+            if not mFound then MurdererLabel.Text = "Убийца: <font color='rgb(140,140,150)'>Поиск...</font>" end
+            if not sFound then SheriffLabel.Text = "Шериф: <font color='rgb(140,140,150)'>Поиск...</font>" end
+            
+            -- Чистим удаленные модельки из кэша подсветки
+            for char, hl in pairs(ActiveHighlights) do
+                if not char or not char.Parent then
+                    if hl then hl:Destroy() end
+                    ActiveHighlights[char] = nil
+                end
+            end
+        end
+    end
+end)
+
+-- 4. ИНТЕГРАЦИЯ ТУМБЛЕРА ВО ВКЛАДКУ "MM 2" ВАШЕГО ХАБА
+AddToggle("MM 2", "Role Finder + ESP", function(state)
+    MM2_Farm_Enabled = state
+    RoleHUD.Visible = state
+    if not state then
+        ClearMM2Visuals()
+    end
+end)
+-- =========================================================================
+
