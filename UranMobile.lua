@@ -1257,3 +1257,166 @@ RoundBtn.MouseLeave:Connect(function()
     TweenService:Create(BtnStroke, TweenInfo.new(0.2), {Transparency = 0.3, Thickness = 1.5}):Play()
 end)
 -- =========================================================================
+
+-- =========================================================================
+-- MURDER MYSTERY 2: MOBILE ROLE FINDER & COMPACT CHAMS (100% MOBILE FIX)
+-- =========================================================================
+local MM2_Mobile_Finder = false
+local MobileHighlights = {}
+
+-- 1. СОЗДАНИЕ УЛЬТРА-КОМПАКТНОГО МИНИ-МЕНЮ ДЛЯ ЭКРАНА ТЕЛЕФОНА
+local MobileHUD = Instance.new("Frame")
+MobileHUD.Name = "MM2MobileHUD"
+MobileHUD.Size = UDim2.new(0, 160, 0, 50) -- Сильно уменьшен размер под экран смартфона
+MobileHUD.Position = UDim2.new(0.02, 0, 0.15, 0) -- Аккуратно встает в левом верхнем углу
+MobileHUD.BackgroundColor3 = Color3.fromRGB(11, 11, 14)
+MobileHUD.BackgroundTransparency = 0.2
+MobileHUD.BorderSizePixel = 0
+MobileHUD.Visible = false
+MobileHUD.ZIndex = 9999
+MobileHUD.Parent = SG -- Привязываем к ScreenGui, чтобы было видно даже при закрытом основном меню
+
+local MHUDCorner = Instance.new("UICorner")
+MHUDCorner.CornerRadius = UDim.new(0, 8)
+MHUDCorner.Parent = MobileHUD
+
+local MHUDStroke = Instance.new("UIStroke")
+MHUDStroke.Color = Color3.fromRGB(0, 255, 163)
+MHUDStroke.Transparency = 0.6
+MHUDStroke.Thickness = 1
+MHUDStroke.Parent = MobileHUD
+
+-- Текст убийцы (Компактный)
+local MMurderer = Instance.new("TextLabel")
+MMurderer.Size = UDim2.new(1, -10, 0, 20)
+MMurderer.Position = UDim2.new(0, 10, 0, 5)
+MMurderer.BackgroundTransparency = 1
+MMurderer.Text = "🔪 : <font color='rgb(140,140,150)'>Поиск...</font>"
+MMurderer.RichText = true
+MMurderer.TextColor3 = Color3.fromRGB(255, 255, 255)
+MMurderer.TextSize = 11
+MMurderer.Font = Enum.Font.GothamBold
+MMurderer.TextXAlignment = Enum.TextXAlignment.Left
+MMurderer.Parent = MobileHUD
+
+-- Текст шерифа (Компактный)
+local MSheriff = Instance.new("TextLabel")
+MSheriff.Size = UDim2.new(1, -10, 0, 20)
+MSheriff.Position = UDim2.new(0, 10, 0, 25)
+MSheriff.BackgroundTransparency = 1
+MSheriff.Text = "🔫 : <font color='rgb(140,140,150)'>Поиск...</font>"
+MSheriff.RichText = true
+MSheriff.TextColor3 = Color3.fromRGB(255, 255, 255)
+MSheriff.TextSize = 11
+MSheriff.Font = Enum.Font.GothamBold
+MSheriff.TextXAlignment = Enum.TextXAlignment.Left
+MSheriff.Parent = MobileHUD
+
+-- 2. ОЧИСТКА ЭФФЕКТОВ
+local function ClearMobileMM2()
+    for char, hl in pairs(MobileHighlights) do
+        if hl then hl:Destroy() end
+    end
+    MobileHighlights = {}
+    MMurderer.Text = "🔪 : <font color='rgb(140,140,150)'>Поиск...</font>"
+    MSheriff.Text = "🔫 : <font color='rgb(140,140,150)'>Поиск...</font>"
+end
+
+-- 3. МОБИЛЬНЫЙ ЦИКЛ СКАНЕРА ИНВЕНТАРЕЙ (ОПТИМИЗИРОВАННЫЙ)
+task.spawn(function()
+    while true do
+        task.wait(1.2) -- Чуть увеличен интервал, чтобы не лагало на слабых процессорах
+        if MM2_Mobile_Finder then
+            local murdererName = "Поиск..."
+            local sheriffName = "Поиск..."
+            
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer then
+                    local character = player.Character
+                    local backpack = player:FindFirstChild("Backpack")
+                    
+                    local hasKnife = false
+                    local hasGun = false
+                    
+                    if backpack then
+                        if backpack:FindFirstChild("Knife") then hasKnife = true end
+                        if backpack:FindFirstChild("Gun") then hasGun = true end
+                    end
+                    
+                    if character then
+                        if character:FindFirstChild("Knife") then hasKnife = true end
+                        if character:FindFirstChild("Gun") then hasGun = true end
+                    end
+                    
+                    -- ОБРАБОТКА МУРДЕРА
+                    if hasKnife and character and character.Parent then
+                        murdererName = player.DisplayName
+                        if #murdererName > 10 then murdererName = murdererName:sub(1, 8) .. ".." end -- Обрезка длинных ников
+                        
+                        if not MobileHighlights[character] or MobileHighlights[character].FillColor ~= Color3.fromRGB(255, 50, 50) then
+                            if MobileHighlights[character] then MobileHighlights[character]:Destroy() end
+                            
+                            local hl = Instance.new("Highlight")
+                            hl.Adornee = character
+                            hl.FillColor = Color3.fromRGB(255, 50, 50) -- Красный
+                            hl.FillTransparency = 0.5
+                            hl.OutlineTransparency = 0.3
+                            hl.AlwaysOnTop = true
+                            hl.Parent = character
+                            MobileHighlights[character] = hl
+                        end
+                        
+                    -- ОБРАБОТКА ШЕРИФА
+                    elseif hasGun and character and character.Parent then
+                        sheriffName = player.DisplayName
+                        if #sheriffName > 10 then sheriffName = sheriffName:sub(1, 8) .. ".." end
+                        
+                        if not MobileHighlights[character] or MobileHighlights[character].FillColor ~= Color3.fromRGB(50, 150, 255) then
+                            if MobileHighlights[character] then MobileHighlights[character]:Destroy() end
+                            
+                            local hl = Instance.new("Highlight")
+                            hl.Adornee = character
+                            hl.FillColor = Color3.fromRGB(50, 150, 255) -- Синий
+                            hl.FillTransparency = 0.5
+                            hl.OutlineTransparency = 0.3
+                            hl.AlwaysOnTop = true
+                            hl.Parent = character
+                            MobileHighlights[character] = hl
+                        end
+                    end
+                end
+            end
+            
+            -- Обновляем мини-текст
+            if murdererName ~= "Поиск..." then
+                MMurderer.Text = string.format("🔪 : <font color='rgb(255, 50, 50)'>%s</font>", murdererName)
+            else
+                MMurderer.Text = "🔪 : <font color='rgb(140,140,150)'>Поиск...</font>"
+            end
+            
+            if sheriffName ~= "Поиск..." then
+                MSheriff.Text = string.format("🔫 : <font color='rgb(50, 150, 255)'>%s</font>", sheriffName)
+            else
+                MSheriff.Text = "🔫 : <font color='rgb(140,140,150)'>Поиск...</font>"
+            end
+            
+            -- Чистим кэш
+            for char, hl in pairs(MobileHighlights) do
+                if not char or not char.Parent then
+                    if hl then hl:Destroy() end
+                    MobileHighlights[char] = nil
+                end
+            end
+        end
+    end
+end)
+
+-- 4. ПРИВЯЗКА К ТУМБЛЕРУ ВО ВКЛАДКЕ "MM 2"
+AddToggle("MM 2", "Role Finder + ESP", function(state)
+    MM2_Mobile_Finder = state
+    MobileHUD.Visible = state
+    if not state then
+        ClearMobileMM2()
+    end
+end)
+-- =========================================================================
